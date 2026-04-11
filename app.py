@@ -6,39 +6,64 @@ import random
 from fpdf import FPDF
 import qrcode
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(page_title="CourseHub 🎓", layout="wide")
+# ---------------- CONFIG ----------------
+st.set_page_config(page_title="CourseHub Pro 🎓", layout="wide")
 
-# ---------------- PREMIUM UI ----------------
+# ---------------- PRO UI ----------------
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
 <style>
+
+/* BACKGROUND */
 [data-testid="stAppViewContainer"] {
-    background: linear-gradient(180deg,#ff003c,#ff5e00,#ff9900,#7a5cff,#3a86ff,#00c853);
-    background-size: 400% 400%;
-    animation: gradientMove 12s ease infinite;
+    background: #0f172a;
 }
-@keyframes gradientMove {
-    0% {background-position: 0% 50%;}
-    50% {background-position: 100% 50%;}
-    100% {background-position: 0% 50%;}
+
+/* SIDEBAR */
+[data-testid="stSidebar"] {
+    background: #020617;
 }
+
+/* TEXT */
+h1, h2, h3, h4, h5 {
+    color: white;
+}
+
+/* CONTAINER */
 .block-container {
-    background: rgba(0,0,0,0.55);
-    padding: 25px;
-    border-radius: 15px;
-    color: white;
+    padding: 2rem 3rem;
 }
-[data-testid="stSidebar"] { background: rgba(0,0,0,0.7); }
-* { font-family: 'Poppins', sans-serif !important; }
+
+/* CARD */
+.card {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0px 5px 25px rgba(0,0,0,0.4);
+}
+
+/* BUTTON */
 .stButton>button {
-    border-radius: 12px;
-    padding: 10px 18px;
-    background: linear-gradient(45deg, #ff4d00, #ff9900);
+    background: #3b82f6;
     color: white;
+    border-radius: 10px;
     border: none;
 }
+
+/* INPUT */
+input, textarea {
+    background: #1e293b !important;
+    color: white !important;
+}
+
+/* METRIC BOX */
+.metric-box {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 15px;
+    text-align: center;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -95,53 +120,15 @@ def login(email,password):
               (email,hash_password(password)))
     return c.fetchone()
 
-def generate_cert_id():
-    return f"CERT-{datetime.datetime.now().year}-{random.randint(10000,99999)}"
-
-def generate_certificate(user, course, cert_id):
-    qr = qrcode.make(f"Certificate ID: {cert_id}")
-    qr.save("qr.png")
-
-    pdf = FPDF()
-    pdf.add_page()
-
-    pdf.set_font("Arial","B",22)
-    pdf.cell(0,20,"CERTIFICATE OF COMPLETION",ln=True,align="C")
-
-    pdf.ln(10)
-    pdf.set_font("Arial","",14)
-    pdf.cell(0,10,"This is to certify that",ln=True,align="C")
-
-    pdf.set_font("Arial","B",18)
-    pdf.cell(0,10,user,ln=True,align="C")
-
-    pdf.set_font("Arial","",14)
-    pdf.cell(0,10,"has successfully completed the course",ln=True,align="C")
-
-    pdf.set_font("Arial","B",16)
-    pdf.cell(0,10,course,ln=True,align="C")
-
-    pdf.ln(10)
-    pdf.cell(0,10,f"Certificate ID: {cert_id}",ln=True,align="C")
-
-    date = datetime.date.today()
-    pdf.cell(0,10,f"Date: {date}",ln=True,align="C")
-
-    pdf.image("qr.png", x=80, y=160, w=50)
-
-    file = f"{cert_id}.pdf"
-    pdf.output(file)
-    return file
-
 # ---------------- SESSION ----------------
 if "user" not in st.session_state:
     st.session_state.user = None
 if "role_selected" not in st.session_state:
     st.session_state.role_selected = None
 
-# ---------------- ROLE SELECTION ----------------
+# ---------------- ROLE SELECT ----------------
 if st.session_state.role_selected is None:
-    st.title("🎓 CourseHub Platform")
+    st.title("🚀 CourseHub Platform")
 
     col1, col2 = st.columns(2)
 
@@ -163,7 +150,7 @@ else:
     if st.session_state.user[4] == "admin":
         menu = ["Admin Panel","Logout"]
     else:
-        menu = ["Dashboard","Courses","Verify Certificate","Logout"]
+        menu = ["Dashboard","Courses","Logout"]
 
 choice = st.sidebar.selectbox("Menu",menu)
 
@@ -171,56 +158,105 @@ choice = st.sidebar.selectbox("Menu",menu)
 if choice == "Register":
     st.subheader(f"{st.session_state.role_selected.capitalize()} Register")
 
-    n = st.text_input("Name")
-    e = st.text_input("Email")
-    p = st.text_input("Password", type="password")
+    name = st.text_input("Name")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
 
     if st.button("Register"):
         try:
             c.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)",
-                      (n,e,hash_password(p), st.session_state.role_selected))
+                      (name,email,hash_password(password),st.session_state.role_selected))
             conn.commit()
-            st.success("Registered!")
+            st.success("Registered Successfully!")
         except:
-            st.error("Email exists!")
+            st.error("Email already exists!")
 
 # ---------------- LOGIN ----------------
 elif choice == "Login":
     st.subheader(f"{st.session_state.role_selected.capitalize()} Login")
 
-    e = st.text_input("Email")
-    p = st.text_input("Password", type="password")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        user = login(e,p)
+        user = login(email,password)
         if user and user[4] == st.session_state.role_selected:
             st.session_state.user = user
-            st.success("Login success")
+            st.success("Login Successful!")
         else:
-            st.error("Invalid or wrong portal!")
+            st.error("Invalid credentials or wrong portal!")
+
+# ---------------- DASHBOARD ----------------
+elif choice == "Dashboard":
+    st.title(f"👋 Welcome {st.session_state.user[1]}")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown('<div class="metric-box"><h3>📚 Courses</h3><h2>5</h2></div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="metric-box"><h3>✅ Completed</h3><h2>2</h2></div>', unsafe_allow_html=True)
+    with col3:
+        st.markdown('<div class="metric-box"><h3>📜 Certificates</h3><h2>1</h2></div>', unsafe_allow_html=True)
+
+# ---------------- COURSES ----------------
+elif choice == "Courses":
+    st.title("📚 Courses")
+
+    c.execute("SELECT * FROM courses")
+    courses = c.fetchall()
+
+    cols = st.columns(3)
+
+    for i, course in enumerate(courses):
+        with cols[i % 3]:
+            st.markdown(f"""
+            <div class="card">
+                <h3>{course[1]}</h3>
+                <p>{course[2]}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if st.button("Open", key=course[0]):
+                st.session_state.course_id = course[0]
+
+    if "course_id" in st.session_state:
+        st.markdown("## 📖 Lessons")
+
+        c.execute("SELECT * FROM lessons WHERE course_id=?",(st.session_state.course_id,))
+        lessons = c.fetchall()
+
+        for lesson in lessons:
+            st.markdown(f'<div class="card"><h4>{lesson[2]}</h4></div>', unsafe_allow_html=True)
+
+            if lesson[5]=="video":
+                st.video(lesson[4])
+            else:
+                st.write(lesson[3])
 
 # ---------------- ADMIN PANEL ----------------
 elif choice == "Admin Panel":
-    st.subheader("⚙️ Admin Dashboard")
+    st.title("⚙️ Admin Panel")
 
-    tab1, tab2, tab3 = st.tabs(["Add Course","Add Content","User Activity"])
+    tab1, tab2 = st.tabs(["Courses","Add Lesson"])
 
     with tab1:
         title = st.text_input("Course Title")
         desc = st.text_area("Description")
+
         if st.button("Add Course"):
             c.execute("INSERT INTO courses(title,description) VALUES(?,?)",(title,desc))
             conn.commit()
-            st.success("Added!")
+            st.success("Course Added")
 
     with tab2:
         c.execute("SELECT * FROM courses")
         courses = c.fetchall()
         course_dict = {c[1]:c[0] for c in courses}
 
-        course = st.selectbox("Course", list(course_dict.keys()))
+        course = st.selectbox("Select Course", list(course_dict.keys()))
         title = st.text_input("Lesson Title")
-        content = st.text_area("Article")
+        content = st.text_area("Content")
         video = st.text_input("Video URL")
         typ = st.selectbox("Type",["video","article"])
 
@@ -228,67 +264,7 @@ elif choice == "Admin Panel":
             c.execute("INSERT INTO lessons(course_id,title,content,video_url,type) VALUES(?,?,?,?,?)",
                       (course_dict[course],title,content,video,typ))
             conn.commit()
-            st.success("Lesson added!")
-
-    with tab3:
-        c.execute("SELECT * FROM users")
-        users = c.fetchall()
-
-        for u in users:
-            st.write(f"👤 {u[1]}")
-            c.execute("""
-            SELECT lessons.title FROM progress
-            JOIN lessons ON progress.lesson_id=lessons.id
-            WHERE progress.user_id=?""",(u[0],))
-            data = c.fetchall()
-            for d in data:
-                st.write(f"   ✅ {d[0]}")
-
-# ---------------- COURSES ----------------
-elif choice == "Courses":
-    c.execute("SELECT * FROM courses")
-    courses = c.fetchall()
-
-    for course in courses:
-        st.subheader(course[1])
-        st.write(course[2])
-
-        if st.button(f"Open {course[1]}", key=course[0]):
-            st.session_state.course_id = course[0]
-
-    if "course_id" in st.session_state:
-        c.execute("SELECT * FROM lessons WHERE course_id=?",(st.session_state.course_id,))
-        lessons = c.fetchall()
-
-        for lesson in lessons:
-            st.write(f"### {lesson[2]}")
-
-            if lesson[5]=="video" and lesson[4]:
-                st.video(lesson[4])
-            else:
-                st.write(lesson[3])
-
-            if st.button(f"Complete {lesson[0]}", key=f"l{lesson[0]}"):
-                c.execute("INSERT INTO progress VALUES(?,?)",
-                          (st.session_state.user[0],lesson[0]))
-                conn.commit()
-                st.success("Completed!")
-
-# ---------------- DASHBOARD ----------------
-elif choice == "Dashboard":
-    st.subheader(f"Welcome {st.session_state.user[1]} 👋")
-
-# ---------------- VERIFY ----------------
-elif choice == "Verify Certificate":
-    cid = st.text_input("Certificate ID")
-    if st.button("Verify"):
-        c.execute("SELECT * FROM certificates WHERE cert_id=?",(cid,))
-        d = c.fetchone()
-        if d:
-            st.success("Valid ✅")
-            st.write(d)
-        else:
-            st.error("Invalid ❌")
+            st.success("Lesson Added")
 
 # ---------------- LOGOUT ----------------
 elif choice == "Logout":
