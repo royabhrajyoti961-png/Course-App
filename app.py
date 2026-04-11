@@ -1,10 +1,6 @@
 import streamlit as st
 import sqlite3
 import hashlib
-import datetime
-import random
-from fpdf import FPDF
-import qrcode
 
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="CourseHub Pro 🎓", layout="wide")
@@ -12,58 +8,23 @@ st.set_page_config(page_title="CourseHub Pro 🎓", layout="wide")
 # ---------------- PRO UI ----------------
 st.markdown("""
 <style>
+[data-testid="stAppViewContainer"] {background:#0f172a;}
+[data-testid="stSidebar"] {background:#020617;}
+h1,h2,h3,h4 {color:white;}
+.block-container {padding:2rem 3rem;}
 
-/* BACKGROUND */
-[data-testid="stAppViewContainer"] {
-    background: #0f172a;
-}
-
-/* SIDEBAR */
-[data-testid="stSidebar"] {
-    background: #020617;
-}
-
-/* TEXT */
-h1, h2, h3, h4, h5 {
-    color: white;
-}
-
-/* CONTAINER */
-.block-container {
-    padding: 2rem 3rem;
-}
-
-/* CARD */
 .card {
-    background: #1e293b;
-    padding: 20px;
-    border-radius: 15px;
-    margin-bottom: 20px;
-    box-shadow: 0px 5px 25px rgba(0,0,0,0.4);
+    background:#1e293b;
+    padding:20px;
+    border-radius:15px;
+    margin-bottom:20px;
 }
 
-/* BUTTON */
 .stButton>button {
-    background: #3b82f6;
-    color: white;
-    border-radius: 10px;
-    border: none;
+    background:#3b82f6;
+    color:white;
+    border-radius:10px;
 }
-
-/* INPUT */
-input, textarea {
-    background: #1e293b !important;
-    color: white !important;
-}
-
-/* METRIC BOX */
-.metric-box {
-    background: #1e293b;
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -86,27 +47,6 @@ def create_tables():
         description TEXT
     )''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS lessons(
-        id INTEGER PRIMARY KEY,
-        course_id INTEGER,
-        title TEXT,
-        content TEXT,
-        video_url TEXT,
-        type TEXT
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS progress(
-        user_id INTEGER,
-        lesson_id INTEGER
-    )''')
-
-    c.execute('''CREATE TABLE IF NOT EXISTS certificates(
-        cert_id TEXT,
-        user_name TEXT,
-        course_name TEXT,
-        date TEXT
-    )''')
-
     conn.commit()
 
 create_tables()
@@ -115,48 +55,44 @@ create_tables()
 def hash_password(p):
     return hashlib.sha256(p.encode()).hexdigest()
 
-def login(email,password):
-    c.execute("SELECT * FROM users WHERE email=? AND password=?",
-              (email,hash_password(password)))
+def login(email,password,role):
+    c.execute("SELECT * FROM users WHERE email=? AND password=? AND role=?",
+              (email,hash_password(password),role))
     return c.fetchone()
 
 # ---------------- SESSION ----------------
+if "portal" not in st.session_state:
+    st.session_state.portal = None
 if "user" not in st.session_state:
     st.session_state.user = None
-if "role_selected" not in st.session_state:
-    st.session_state.role_selected = None
 
-# ---------------- ROLE SELECT ----------------
-if st.session_state.role_selected is None:
+# ---------------- PORTAL SELECTION ----------------
+if st.session_state.portal is None:
     st.title("🚀 CourseHub Platform")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("🎓 Student Portal"):
-            st.session_state.role_selected = "student"
+        st.markdown("<div class='card'><h3>🎓 Learner Portal</h3></div>", unsafe_allow_html=True)
+        if st.button("Enter Learner Portal"):
+            st.session_state.portal = "student"
 
     with col2:
-        if st.button("⚙️ Admin Portal"):
-            st.session_state.role_selected = "admin"
+        st.markdown("<div class='card'><h3>⚙️ Admin Portal</h3></div>", unsafe_allow_html=True)
+        if st.button("Enter Admin Portal"):
+            st.session_state.portal = "admin"
 
     st.stop()
 
-# ---------------- MENU ----------------
-menu = []
+# ---------------- AUTH MENU ----------------
 if st.session_state.user is None:
-    menu = ["Login","Register"]
+    auth_choice = st.sidebar.radio("Account", ["Login","Register"])
 else:
-    if st.session_state.user[4] == "admin":
-        menu = ["Admin Panel","Logout"]
-    else:
-        menu = ["Dashboard","Courses","Logout"]
-
-choice = st.sidebar.selectbox("Menu",menu)
+    auth_choice = None
 
 # ---------------- REGISTER ----------------
-if choice == "Register":
-    st.subheader(f"{st.session_state.role_selected.capitalize()} Register")
+if auth_choice == "Register":
+    st.subheader(f"{st.session_state.portal.capitalize()} Register")
 
     name = st.text_input("Name")
     email = st.text_input("Email")
@@ -165,43 +101,32 @@ if choice == "Register":
     if st.button("Register"):
         try:
             c.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)",
-                      (name,email,hash_password(password),st.session_state.role_selected))
+                      (name,email,hash_password(password),st.session_state.portal))
             conn.commit()
             st.success("Registered Successfully!")
         except:
             st.error("Email already exists!")
 
 # ---------------- LOGIN ----------------
-elif choice == "Login":
-    st.subheader(f"{st.session_state.role_selected.capitalize()} Login")
+elif auth_choice == "Login":
+    st.subheader(f"{st.session_state.portal.capitalize()} Login")
 
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        user = login(email,password)
-        if user and user[4] == st.session_state.role_selected:
+        user = login(email,password,st.session_state.portal)
+        if user:
             st.session_state.user = user
             st.success("Login Successful!")
         else:
-            st.error("Invalid credentials or wrong portal!")
+            st.error("Invalid credentials!")
 
-# ---------------- DASHBOARD ----------------
-elif choice == "Dashboard":
-    st.title(f"👋 Welcome {st.session_state.user[1]}")
+# ---------------- LEARNER DASHBOARD ----------------
+elif st.session_state.portal == "student":
+    st.title(f"🎓 Welcome {st.session_state.user[1]}")
 
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown('<div class="metric-box"><h3>📚 Courses</h3><h2>5</h2></div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown('<div class="metric-box"><h3>✅ Completed</h3><h2>2</h2></div>', unsafe_allow_html=True)
-    with col3:
-        st.markdown('<div class="metric-box"><h3>📜 Certificates</h3><h2>1</h2></div>', unsafe_allow_html=True)
-
-# ---------------- COURSES ----------------
-elif choice == "Courses":
-    st.title("📚 Courses")
+    st.markdown("## 📚 Available Courses")
 
     c.execute("SELECT * FROM courses")
     courses = c.fetchall()
@@ -217,28 +142,11 @@ elif choice == "Courses":
             </div>
             """, unsafe_allow_html=True)
 
-            if st.button("Open", key=course[0]):
-                st.session_state.course_id = course[0]
+# ---------------- ADMIN DASHBOARD ----------------
+elif st.session_state.portal == "admin":
+    st.title("⚙️ Admin Dashboard")
 
-    if "course_id" in st.session_state:
-        st.markdown("## 📖 Lessons")
-
-        c.execute("SELECT * FROM lessons WHERE course_id=?",(st.session_state.course_id,))
-        lessons = c.fetchall()
-
-        for lesson in lessons:
-            st.markdown(f'<div class="card"><h4>{lesson[2]}</h4></div>', unsafe_allow_html=True)
-
-            if lesson[5]=="video":
-                st.video(lesson[4])
-            else:
-                st.write(lesson[3])
-
-# ---------------- ADMIN PANEL ----------------
-elif choice == "Admin Panel":
-    st.title("⚙️ Admin Panel")
-
-    tab1, tab2 = st.tabs(["Courses","Add Lesson"])
+    tab1, tab2 = st.tabs(["Add Course","View Courses"])
 
     with tab1:
         title = st.text_input("Course Title")
@@ -247,27 +155,23 @@ elif choice == "Admin Panel":
         if st.button("Add Course"):
             c.execute("INSERT INTO courses(title,description) VALUES(?,?)",(title,desc))
             conn.commit()
-            st.success("Course Added")
+            st.success("Course Added!")
 
     with tab2:
         c.execute("SELECT * FROM courses")
         courses = c.fetchall()
-        course_dict = {c[1]:c[0] for c in courses}
 
-        course = st.selectbox("Select Course", list(course_dict.keys()))
-        title = st.text_input("Lesson Title")
-        content = st.text_area("Content")
-        video = st.text_input("Video URL")
-        typ = st.selectbox("Type",["video","article"])
-
-        if st.button("Add Lesson"):
-            c.execute("INSERT INTO lessons(course_id,title,content,video_url,type) VALUES(?,?,?,?,?)",
-                      (course_dict[course],title,content,video,typ))
-            conn.commit()
-            st.success("Lesson Added")
+        for cdata in courses:
+            st.markdown(f"""
+            <div class="card">
+                <h3>{cdata[1]}</h3>
+                <p>{cdata[2]}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
 # ---------------- LOGOUT ----------------
-elif choice == "Logout":
-    st.session_state.user = None
-    st.session_state.role_selected = None
-    st.success("Logged out")
+if st.session_state.user:
+    if st.sidebar.button("Logout"):
+        st.session_state.user = None
+        st.session_state.portal = None
+        st.success("Logged out")
