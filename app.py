@@ -5,7 +5,33 @@ import datetime
 import random
 from fpdf import FPDF
 import qrcode
-from PIL import Image
+
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(page_title="CourseHub 🎓", layout="wide")
+
+# ---------------- POPPINS FONT + UI ----------------
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+    html, body, [class*="css"]  {
+        font-family: 'Poppins', sans-serif;
+    }
+
+    h1, h2, h3 {
+        font-weight: 600;
+    }
+
+    .stButton>button {
+        border-radius: 10px;
+        padding: 8px 16px;
+    }
+
+    .block-container {
+        padding-top: 2rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # ---------------- DB ----------------
 conn = sqlite3.connect("coursehub.db", check_same_thread=False)
@@ -71,24 +97,24 @@ def login(email,password):
 
 # ---------------- CERTIFICATE ----------------
 def generate_certificate(user, course, cert_id):
-    qr = qrcode.make(f"Verify ID: {cert_id}")
+    qr = qrcode.make(f"Certificate ID: {cert_id}")
     qr.save("qr.png")
 
     pdf = FPDF()
     pdf.add_page()
 
-    pdf.set_font("Arial","B",20)
+    pdf.set_font("Arial","B",22)
     pdf.cell(0,20,"CERTIFICATE OF COMPLETION",ln=True,align="C")
 
     pdf.ln(10)
     pdf.set_font("Arial","",14)
     pdf.cell(0,10,"This is to certify that",ln=True,align="C")
 
-    pdf.set_font("Arial","B",16)
+    pdf.set_font("Arial","B",18)
     pdf.cell(0,10,user,ln=True,align="C")
 
     pdf.set_font("Arial","",14)
-    pdf.cell(0,10,"has successfully completed",ln=True,align="C")
+    pdf.cell(0,10,"has successfully completed the course",ln=True,align="C")
 
     pdf.set_font("Arial","B",16)
     pdf.cell(0,10,course,ln=True,align="C")
@@ -127,9 +153,9 @@ if choice == "Register":
 
     if st.button("Register"):
         if register(n,e,p):
-            st.success("Registered!")
+            st.success("Registered Successfully!")
         else:
-            st.error("Email exists")
+            st.error("Email already exists!")
 
 # ---------------- LOGIN ----------------
 elif choice == "Login":
@@ -141,23 +167,23 @@ elif choice == "Login":
         user = login(e,p)
         if user:
             st.session_state.user = user
-            st.success("Logged in")
+            st.success("Login Successful!")
         else:
-            st.error("Invalid")
+            st.error("Invalid credentials")
 
 # ---------------- DASHBOARD ----------------
 elif choice == "Dashboard":
-    st.subheader(f"Welcome {st.session_state.user[1]}")
+    st.subheader(f"Welcome {st.session_state.user[1]} 👋")
+    st.write("Start learning and earn certificates!")
 
 # ---------------- COURSES ----------------
 elif choice == "Courses":
 
-    # insert demo course
     c.execute("SELECT * FROM courses")
     if not c.fetchall():
         c.execute("INSERT INTO courses(title,description) VALUES('Python Basics','Learn Python')")
-        c.execute("INSERT INTO lessons(course_id,title,content) VALUES(1,'Intro','Intro Content')")
-        c.execute("INSERT INTO lessons(course_id,title,content) VALUES(1,'Variables','Variables Content')")
+        c.execute("INSERT INTO lessons(course_id,title,content) VALUES(1,'Intro','Python Introduction')")
+        c.execute("INSERT INTO lessons(course_id,title,content) VALUES(1,'Variables','Learn Variables')")
         conn.commit()
 
     c.execute("SELECT * FROM courses")
@@ -167,7 +193,7 @@ elif choice == "Courses":
         st.subheader(course[1])
         st.write(course[2])
 
-        if st.button(f"Open {course[0]}"):
+        if st.button(f"Open Course {course[0]}"):
             st.session_state.course_id = course[0]
 
     if "course_id" in st.session_state:
@@ -178,16 +204,15 @@ elif choice == "Courses":
         lessons = c.fetchall()
 
         for lesson in lessons:
-            st.write(lesson[2])
+            st.write(f"### {lesson[2]}")
             st.write(lesson[3])
 
-            if st.button(f"Complete {lesson[0]}"):
+            if st.button(f"Complete Lesson {lesson[0]}"):
                 c.execute("INSERT INTO progress VALUES(?,?)",
                           (st.session_state.user[0], lesson[0]))
                 conn.commit()
-                st.success("Completed")
+                st.success("Lesson Completed!")
 
-        # completion check
         c.execute("SELECT COUNT(*) FROM lessons WHERE course_id=?",
                   (st.session_state.course_id,))
         total = c.fetchone()[0]
@@ -197,7 +222,7 @@ elif choice == "Courses":
         done = c.fetchone()[0]
 
         if done >= total:
-            if st.button("Generate Certificate"):
+            if st.button("Generate Certificate 🎓"):
                 cert_id = generate_cert_id()
 
                 file = generate_certificate(
