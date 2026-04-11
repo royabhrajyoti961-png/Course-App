@@ -9,8 +9,63 @@ import qrcode
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="CourseHub 🎓", layout="wide")
 
-# ---------------- UI ----------------
-st.title("🎓 CourseHub Academy")
+# ---------------- PREMIUM UI ----------------
+st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+/* 🌈 Animated Gradient Background */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(
+        180deg,
+        #ff003c,
+        #ff5e00,
+        #ff9900,
+        #7a5cff,
+        #3a86ff,
+        #00c853
+    );
+    background-size: 400% 400%;
+    animation: gradientMove 12s ease infinite;
+}
+
+/* Animation */
+@keyframes gradientMove {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
+}
+
+/* Glass UI */
+.block-container {
+    background: rgba(0,0,0,0.55);
+    padding: 25px;
+    border-radius: 15px;
+    color: white;
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background: rgba(0,0,0,0.7);
+}
+
+/* Font */
+* {
+    font-family: 'Poppins', sans-serif !important;
+}
+
+/* Buttons */
+.stButton>button {
+    border-radius: 12px;
+    padding: 10px 18px;
+    background: linear-gradient(45deg, #ff4d00, #ff9900);
+    color: white;
+    border: none;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------- DB ----------------
 conn = sqlite3.connect("coursehub.db", check_same_thread=False)
@@ -78,6 +133,42 @@ def login(email,password):
               (email,hash_password(password)))
     return c.fetchone()
 
+# ---------------- CERTIFICATE ----------------
+def generate_certificate(user, course, cert_id):
+    qr = qrcode.make(f"Certificate ID: {cert_id}")
+    qr.save("qr.png")
+
+    pdf = FPDF()
+    pdf.add_page()
+
+    pdf.set_font("Arial","B",22)
+    pdf.cell(0,20,"CERTIFICATE OF COMPLETION",ln=True,align="C")
+
+    pdf.ln(10)
+    pdf.set_font("Arial","",14)
+    pdf.cell(0,10,"This is to certify that",ln=True,align="C")
+
+    pdf.set_font("Arial","B",18)
+    pdf.cell(0,10,user,ln=True,align="C")
+
+    pdf.set_font("Arial","",14)
+    pdf.cell(0,10,"has successfully completed the course",ln=True,align="C")
+
+    pdf.set_font("Arial","B",16)
+    pdf.cell(0,10,course,ln=True,align="C")
+
+    pdf.ln(10)
+    pdf.cell(0,10,f"Certificate ID: {cert_id}",ln=True,align="C")
+
+    date = datetime.date.today()
+    pdf.cell(0,10,f"Date: {date}",ln=True,align="C")
+
+    pdf.image("qr.png", x=80, y=160, w=50)
+
+    file = f"{cert_id}.pdf"
+    pdf.output(file)
+    return file
+
 # ---------------- SESSION ----------------
 if "user" not in st.session_state:
     st.session_state.user = None
@@ -89,7 +180,7 @@ if st.session_state.user:
     if st.session_state.user[4] == "admin":
         menu = ["Admin Panel","Logout"]
     else:
-        menu = ["Dashboard","Courses","Logout"]
+        menu = ["Dashboard","Courses","Verify Certificate","Logout"]
 
 choice = st.sidebar.selectbox("Menu",menu)
 
@@ -131,7 +222,7 @@ elif choice == "Admin Panel":
         "📜 Certificates"
     ])
 
-    # ---- ADD COURSE ----
+    # Add Course
     with tab1:
         title = st.text_input("Course Title")
         desc = st.text_area("Description")
@@ -141,7 +232,7 @@ elif choice == "Admin Panel":
             conn.commit()
             st.success("Course Added!")
 
-    # ---- ADD VIDEO / ARTICLE ----
+    # Add Lesson
     with tab2:
         c.execute("SELECT * FROM courses")
         courses = c.fetchall()
@@ -150,7 +241,7 @@ elif choice == "Admin Panel":
         selected_course = st.selectbox("Select Course", list(course_dict.keys()))
         lesson_title = st.text_input("Lesson Title")
         lesson_content = st.text_area("Article Content")
-        video_url = st.text_input("Video URL (YouTube etc)")
+        video_url = st.text_input("Video URL")
         lesson_type = st.selectbox("Type", ["video","article"])
 
         if st.button("Add Lesson"):
@@ -160,10 +251,8 @@ elif choice == "Admin Panel":
             conn.commit()
             st.success("Lesson Added!")
 
-    # ---- USER ACTIVITY ----
+    # Users Activity
     with tab3:
-        st.subheader("Users Progress")
-
         c.execute("SELECT * FROM users")
         users = c.fetchall()
 
@@ -184,7 +273,7 @@ elif choice == "Admin Panel":
             else:
                 st.write("   ❌ No progress")
 
-    # ---- CERTIFICATES ----
+    # Certificates
     with tab4:
         c.execute("SELECT * FROM certificates")
         certs = c.fetchall()
@@ -225,6 +314,24 @@ elif choice == "Courses":
 # ---------------- DASHBOARD ----------------
 elif choice == "Dashboard":
     st.subheader(f"Welcome {st.session_state.user[1]} 👋")
+
+# ---------------- VERIFY ----------------
+elif choice == "Verify Certificate":
+    st.subheader("Verify Certificate")
+
+    cid = st.text_input("Enter Certificate ID")
+
+    if st.button("Verify"):
+        c.execute("SELECT * FROM certificates WHERE cert_id=?", (cid,))
+        data = c.fetchone()
+
+        if data:
+            st.success("Valid Certificate ✅")
+            st.write(f"Name: {data[1]}")
+            st.write(f"Course: {data[2]}")
+            st.write(f"Date: {data[3]}")
+        else:
+            st.error("Invalid Certificate ❌")
 
 # ---------------- LOGOUT ----------------
 elif choice == "Logout":
