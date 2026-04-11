@@ -9,28 +9,36 @@ import qrcode
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="CourseHub 🎓", layout="wide")
 
-# ---------------- POPPINS FONT + UI ----------------
+# ---------------- POPPINS FONT (FINAL FIX) ----------------
 st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    html, body, [class*="css"]  {
-        font-family: 'Poppins', sans-serif;
-    }
+<style>
+* {
+    font-family: 'Poppins', sans-serif !important;
+}
 
-    h1, h2, h3 {
-        font-weight: 600;
-    }
+[data-testid="stAppViewContainer"] * {
+    font-family: 'Poppins', sans-serif !important;
+}
 
-    .stButton>button {
-        border-radius: 10px;
-        padding: 8px 16px;
-    }
+[data-testid="stSidebar"] * {
+    font-family: 'Poppins', sans-serif !important;
+}
 
-    .block-container {
-        padding-top: 2rem;
-    }
-    </style>
+button, input, textarea {
+    font-family: 'Poppins', sans-serif !important;
+}
+
+h1 { font-weight: 700; }
+h2 { font-weight: 600; }
+h3 { font-weight: 600; }
+
+.stButton>button {
+    border-radius: 12px;
+    padding: 10px 18px;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # ---------------- DB ----------------
