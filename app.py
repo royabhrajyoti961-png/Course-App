@@ -9,73 +9,74 @@ import qrcode
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="CourseHub 🎓", layout="wide")
 
-# ---------------- PREMIUM UI (FONT + GRADIENT) ----------------
-st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+# ---------------- THEME TOGGLE ----------------
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
 
-<style>
+toggle = st.sidebar.toggle("🌗 Toggle Theme", value=True)
 
-/* 🌈 Animated Gradient Background */
-[data-testid="stAppViewContainer"] {
-    background: linear-gradient(
-        180deg,
-        #ff003c,
-        #ff5e00,
-        #ff9900,
-        #7a5cff,
-        #3a86ff,
-        #00c853
-    );
-    background-size: 400% 400%;
-    animation: gradientMove 12s ease infinite;
-}
+st.session_state.theme = "dark" if toggle else "light"
 
-/* Animation */
-@keyframes gradientMove {
-    0% {background-position: 0% 50%;}
-    50% {background-position: 100% 50%;}
-    100% {background-position: 0% 50%;}
-}
+# ---------------- UI ----------------
+if st.session_state.theme == "dark":
+    st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+    * { font-family: 'Poppins', sans-serif !important; }
 
-/* 🧊 Glass Container */
-.block-container {
-    background: rgba(0,0,0,0.55);
-    padding: 25px;
-    border-radius: 15px;
-    color: white;
-}
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(180deg,#ff003c,#ff5e00,#ff9900,#7a5cff,#3a86ff,#00c853);
+        background-size: 400% 400%;
+        animation: gradientMove 12s ease infinite;
+    }
 
-/* Sidebar */
-[data-testid="stSidebar"] {
-    background: rgba(0,0,0,0.7);
-}
+    @keyframes gradientMove {
+        0%{background-position:0% 50%;}
+        50%{background-position:100% 50%;}
+        100%{background-position:0% 50%;}
+    }
 
-/* Poppins Font Everywhere */
-* {
-    font-family: 'Poppins', sans-serif !important;
-}
+    .block-container {
+        background: rgba(0,0,0,0.55);
+        padding: 25px;
+        border-radius: 15px;
+        color: white;
+    }
 
-/* Headings */
-h1 { font-weight: 700; }
-h2 { font-weight: 600; }
-h3 { font-weight: 600; }
+    [data-testid="stSidebar"] {
+        background: rgba(0,0,0,0.7);
+    }
 
-/* Buttons */
-.stButton>button {
-    border-radius: 12px;
-    padding: 10px 18px;
-    background: linear-gradient(45deg, #ff4d00, #ff9900);
-    color: white;
-    border: none;
-}
+    .stButton>button {
+        border-radius: 12px;
+        padding: 10px;
+        background: linear-gradient(45deg,#ff4d00,#ff9900);
+        color:white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-/* Inputs */
-input, textarea {
-    border-radius: 10px !important;
-}
+else:
+    st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+    * { font-family: 'Poppins', sans-serif !important; }
 
-</style>
-""", unsafe_allow_html=True)
+    [data-testid="stAppViewContainer"] { background:#f5f7fa; }
+
+    .block-container {
+        background:white;
+        padding:25px;
+        border-radius:15px;
+    }
+
+    .stButton>button {
+        border-radius:12px;
+        background: linear-gradient(45deg,#3a86ff,#00c853);
+        color:white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # ---------------- DB ----------------
 conn = sqlite3.connect("coursehub.db", check_same_thread=False)
@@ -86,7 +87,8 @@ def create_tables():
         id INTEGER PRIMARY KEY,
         name TEXT,
         email TEXT UNIQUE,
-        password TEXT
+        password TEXT,
+        role TEXT
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS courses(
@@ -117,6 +119,18 @@ def create_tables():
 
 create_tables()
 
+# ---------------- CREATE ADMIN ----------------
+def create_admin():
+    c.execute("SELECT * FROM users WHERE email=?", ("admin@coursehub.com",))
+    if not c.fetchone():
+        c.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)",
+                  ("Admin","admin@coursehub.com",
+                   hashlib.sha256("admin123".encode()).hexdigest(),
+                   "admin"))
+        conn.commit()
+
+create_admin()
+
 # ---------------- UTILS ----------------
 def hash_password(p):
     return hashlib.sha256(p.encode()).hexdigest()
@@ -127,8 +141,8 @@ def generate_cert_id():
 # ---------------- AUTH ----------------
 def register(name,email,password):
     try:
-        c.execute("INSERT INTO users(name,email,password) VALUES(?,?,?)",
-                  (name,email,hash_password(password)))
+        c.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)",
+                  (name,email,hash_password(password),"user"))
         conn.commit()
         return True
     except:
@@ -141,35 +155,25 @@ def login(email,password):
 
 # ---------------- CERTIFICATE ----------------
 def generate_certificate(user, course, cert_id):
-    qr = qrcode.make(f"Certificate ID: {cert_id}")
+    qr = qrcode.make(cert_id)
     qr.save("qr.png")
 
     pdf = FPDF()
     pdf.add_page()
-
     pdf.set_font("Arial","B",22)
     pdf.cell(0,20,"CERTIFICATE OF COMPLETION",ln=True,align="C")
 
     pdf.ln(10)
     pdf.set_font("Arial","",14)
-    pdf.cell(0,10,"This is to certify that",ln=True,align="C")
+    pdf.cell(0,10,"This certifies",ln=True,align="C")
 
     pdf.set_font("Arial","B",18)
     pdf.cell(0,10,user,ln=True,align="C")
 
-    pdf.set_font("Arial","",14)
-    pdf.cell(0,10,"has successfully completed the course",ln=True,align="C")
+    pdf.cell(0,10,f"completed {course}",ln=True,align="C")
+    pdf.cell(0,10,cert_id,ln=True,align="C")
 
-    pdf.set_font("Arial","B",16)
-    pdf.cell(0,10,course,ln=True,align="C")
-
-    pdf.ln(10)
-    pdf.cell(0,10,f"Certificate ID: {cert_id}",ln=True,align="C")
-
-    date = datetime.date.today()
-    pdf.cell(0,10,f"Date: {date}",ln=True,align="C")
-
-    pdf.image("qr.png", x=80, y=160, w=50)
+    pdf.image("qr.png", x=80, y=150, w=40)
 
     file = f"{cert_id}.pdf"
     pdf.output(file)
@@ -179,31 +183,20 @@ def generate_certificate(user, course, cert_id):
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# ---------------- UI ----------------
-st.title("🎓 CourseHub Academy")
-
+# ---------------- MENU ----------------
 menu = ["Login","Register"]
+
 if st.session_state.user:
-    menu = ["Dashboard","Courses","Verify Certificate","Logout"]
+    role = st.session_state.user[4]
+    if role == "admin":
+        menu = ["Admin Panel","Logout"]
+    else:
+        menu = ["Dashboard","Courses","Verify Certificate","Logout"]
 
 choice = st.sidebar.selectbox("Menu",menu)
 
-# ---------------- REGISTER ----------------
-if choice == "Register":
-    st.subheader("Create Account")
-    n = st.text_input("Name")
-    e = st.text_input("Email")
-    p = st.text_input("Password", type="password")
-
-    if st.button("Register"):
-        if register(n,e,p):
-            st.success("Registered Successfully!")
-        else:
-            st.error("Email already exists!")
-
 # ---------------- LOGIN ----------------
-elif choice == "Login":
-    st.subheader("Login")
+if choice == "Login":
     e = st.text_input("Email")
     p = st.text_input("Password", type="password")
 
@@ -211,103 +204,92 @@ elif choice == "Login":
         user = login(e,p)
         if user:
             st.session_state.user = user
-            st.success("Login Successful!")
+            st.success("Logged in")
         else:
-            st.error("Invalid credentials")
+            st.error("Invalid")
 
-# ---------------- DASHBOARD ----------------
-elif choice == "Dashboard":
-    st.subheader(f"Welcome {st.session_state.user[1]} 👋")
-    st.write("Start learning and earn certificates!")
+# ---------------- REGISTER ----------------
+elif choice == "Register":
+    n = st.text_input("Name")
+    e = st.text_input("Email")
+    p = st.text_input("Password", type="password")
+
+    if st.button("Register"):
+        if register(n,e,p):
+            st.success("Registered")
+        else:
+            st.error("Email exists")
+
+# ---------------- ADMIN PANEL ----------------
+elif choice == "Admin Panel":
+    st.title("👨‍💼 Admin Panel")
+
+    tab1, tab2, tab3 = st.tabs(["Add Course","Add Lesson","Users"])
+
+    with tab1:
+        title = st.text_input("Course Title")
+        desc = st.text_area("Description")
+        if st.button("Add Course"):
+            c.execute("INSERT INTO courses(title,description) VALUES(?,?)",(title,desc))
+            conn.commit()
+            st.success("Added")
+
+    with tab2:
+        c.execute("SELECT * FROM courses")
+        courses = c.fetchall()
+        course_dict = {c[1]:c[0] for c in courses}
+
+        selected = st.selectbox("Course", list(course_dict.keys()))
+        ltitle = st.text_input("Lesson Title")
+        content = st.text_area("Video Link / Article")
+
+        if st.button("Add Lesson"):
+            c.execute("INSERT INTO lessons(course_id,title,content) VALUES(?,?,?)",
+                      (course_dict[selected],ltitle,content))
+            conn.commit()
+            st.success("Lesson Added")
+
+    with tab3:
+        c.execute("SELECT name,email,role FROM users")
+        for u in c.fetchall():
+            st.write(u)
 
 # ---------------- COURSES ----------------
 elif choice == "Courses":
-
     c.execute("SELECT * FROM courses")
-    if not c.fetchall():
-        c.execute("INSERT INTO courses(title,description) VALUES('Python Basics','Learn Python')")
-        c.execute("INSERT INTO lessons(course_id,title,content) VALUES(1,'Intro','Python Introduction')")
-        c.execute("INSERT INTO lessons(course_id,title,content) VALUES(1,'Variables','Learn Variables')")
-        conn.commit()
-
-    c.execute("SELECT * FROM courses")
-    courses = c.fetchall()
-
-    for course in courses:
+    for course in c.fetchall():
         st.subheader(course[1])
-        st.write(course[2])
 
-        if st.button(f"Open Course {course[0]}", key=f"open_{course[0]}"):
-            st.session_state.course_id = course[0]
+        if st.button("Open", key=f"c{course[0]}"):
+            st.session_state.cid = course[0]
 
-    if "course_id" in st.session_state:
-        st.subheader("Lessons")
-
-        c.execute("SELECT * FROM lessons WHERE course_id=?",
-                  (st.session_state.course_id,))
+    if "cid" in st.session_state:
+        c.execute("SELECT * FROM lessons WHERE course_id=?",(st.session_state.cid,))
         lessons = c.fetchall()
 
-        for lesson in lessons:
-            st.write(f"### {lesson[2]}")
-            st.write(lesson[3])
+        for l in lessons:
+            st.write(l[2])
 
-            if st.button(f"Complete Lesson {lesson[0]}", key=f"lesson_{lesson[0]}"):
-                c.execute("SELECT * FROM progress WHERE user_id=? AND lesson_id=?",
-                          (st.session_state.user[0], lesson[0]))
-                if not c.fetchone():
-                    c.execute("INSERT INTO progress VALUES(?,?)",
-                              (st.session_state.user[0], lesson[0]))
-                    conn.commit()
-                    st.success("Lesson Completed!")
-                else:
-                    st.info("Already completed")
-
-        c.execute("SELECT COUNT(*) FROM lessons WHERE course_id=?",
-                  (st.session_state.course_id,))
-        total = c.fetchone()[0]
-
-        c.execute("""
-        SELECT COUNT(*) FROM progress 
-        WHERE user_id=? AND lesson_id IN (
-            SELECT id FROM lessons WHERE course_id=?
-        )
-        """, (st.session_state.user[0], st.session_state.course_id))
-        done = c.fetchone()[0]
-
-        if done >= total:
-            if st.button("Generate Certificate 🎓", key="cert_btn"):
-                cert_id = generate_cert_id()
-
-                file = generate_certificate(
-                    st.session_state.user[1],
-                    "Python Basics",
-                    cert_id
-                )
-
-                c.execute("INSERT INTO certificates VALUES(?,?,?,?)",
-                          (cert_id, st.session_state.user[1], "Python Basics", str(datetime.date.today())))
+            if st.button("Complete", key=f"l{l[0]}"):
+                c.execute("INSERT INTO progress VALUES(?,?)",
+                          (st.session_state.user[0],l[0]))
                 conn.commit()
 
-                with open(file,"rb") as f:
-                    st.download_button("Download Certificate", f, file)
+        if st.button("Get Certificate"):
+            cert = generate_cert_id()
+            file = generate_certificate(st.session_state.user[1],"Course",cert)
+            with open(file,"rb") as f:
+                st.download_button("Download",f,file)
 
 # ---------------- VERIFY ----------------
 elif choice == "Verify Certificate":
-    st.subheader("Verify Certificate")
-
-    cid = st.text_input("Enter Certificate ID")
-
+    cid = st.text_input("Certificate ID")
     if st.button("Verify"):
         c.execute("SELECT * FROM certificates WHERE cert_id=?", (cid,))
-        data = c.fetchone()
-
-        if data:
-            st.success("Valid Certificate ✅")
-            st.write(f"Name: {data[1]}")
-            st.write(f"Course: {data[2]}")
-            st.write(f"Date: {data[3]}")
+        if c.fetchone():
+            st.success("Valid")
         else:
-            st.error("Invalid Certificate ❌")
+            st.error("Invalid")
 
 # ---------------- LOGOUT ----------------
 elif choice == "Logout":
