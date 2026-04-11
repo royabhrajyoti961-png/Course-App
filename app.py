@@ -1,100 +1,237 @@
 import streamlit as st
+import sqlite3
+import hashlib
+import datetime
+import random
+from fpdf import FPDF
+import qrcode
+from PIL import Image
 
-st.set_page_config(page_title="CourseFinder 🎓", layout="wide")
+# ---------------- DB ----------------
+conn = sqlite3.connect("coursehub.db", check_same_thread=False)
+c = conn.cursor()
 
-# ---------------- TITLE ----------------
-st.title("🎓 CourseFinder - Learn & Get Certified")
-st.write("Find the best courses and get official certificates from trusted platforms 🚀")
+def create_tables():
+    c.execute('''CREATE TABLE IF NOT EXISTS users(
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        email TEXT UNIQUE,
+        password TEXT
+    )''')
 
-# ---------------- COURSE DATABASE (MANUAL + SAFE) ----------------
-courses_db = [
-    {
-        "title": "Python for Beginners",
-        "platform": "Kaggle",
-        "description": "Learn Python from scratch",
-        "url": "https://www.kaggle.com/learn/python",
-        "certificate": "Free"
-    },
-    {
-        "title": "Intro to Machine Learning",
-        "platform": "Kaggle",
-        "description": "Basic ML concepts",
-        "url": "https://www.kaggle.com/learn/intro-to-machine-learning",
-        "certificate": "Free"
-    },
-    {
-        "title": "Google Digital Marketing",
-        "platform": "Google Digital Garage",
-        "description": "Learn digital marketing",
-        "url": "https://learndigital.withgoogle.com/digitalgarage",
-        "certificate": "Free"
-    },
-    {
-        "title": "AI For Everyone",
-        "platform": "Coursera",
-        "description": "AI basics by Andrew Ng",
-        "url": "https://www.coursera.org/learn/ai-for-everyone",
-        "certificate": "Paid"
-    },
-    {
-        "title": "Full Web Development Course",
-        "platform": "YouTube",
-        "description": "Complete web dev course",
-        "url": "https://www.youtube.com",
-        "certificate": "No"
-    }
-]
+    c.execute('''CREATE TABLE IF NOT EXISTS courses(
+        id INTEGER PRIMARY KEY,
+        title TEXT,
+        description TEXT
+    )''')
 
-# ---------------- SEARCH ----------------
-query = st.text_input("🔍 Search course (Python, AI, Web Dev...)")
+    c.execute('''CREATE TABLE IF NOT EXISTS lessons(
+        id INTEGER PRIMARY KEY,
+        course_id INTEGER,
+        title TEXT,
+        content TEXT
+    )''')
 
-# ---------------- FILTER ----------------
-free_only = st.checkbox("Show only FREE certificates")
+    c.execute('''CREATE TABLE IF NOT EXISTS progress(
+        user_id INTEGER,
+        lesson_id INTEGER
+    )''')
 
-# ---------------- FUNCTION ----------------
-def filter_courses(query):
-    results = []
-    for course in courses_db:
-        if query.lower() in course["title"].lower():
-            if free_only:
-                if course["certificate"] == "Free":
-                    results.append(course)
-            else:
-                results.append(course)
-    return results
+    c.execute('''CREATE TABLE IF NOT EXISTS certificates(
+        cert_id TEXT,
+        user_name TEXT,
+        course_name TEXT,
+        date TEXT
+    )''')
+    conn.commit()
 
-# ---------------- DISPLAY ----------------
-if st.button("Search"):
-    results = filter_courses(query)
+create_tables()
 
-    if results:
-        for course in results:
-            with st.container():
-                col1, col2 = st.columns([3,1])
+# ---------------- UTILS ----------------
+def hash_password(p):
+    return hashlib.sha256(p.encode()).hexdigest()
 
-                with col1:
-                    st.subheader(course["title"])
-                    st.write(course["description"])
-                    st.write(f"📚 Platform: {course['platform']}")
+def generate_cert_id():
+    return f"CERT-{datetime.datetime.now().year}-{random.randint(10000,99999)}"
 
-                    if course["certificate"] == "Free":
-                        st.success("🎓 Free Certificate Available")
-                    elif course["certificate"] == "Paid":
-                        st.warning("🎓 Certificate (Paid)")
-                    else:
-                        st.error("❌ No Certificate")
+# ---------------- AUTH ----------------
+def register(name,email,password):
+    try:
+        c.execute("INSERT INTO users(name,email,password) VALUES(?,?,?)",
+                  (name,email,hash_password(password)))
+        conn.commit()
+        return True
+    except:
+        return False
 
-                with col2:
-                    st.link_button("Go to Course 🚀", course["url"])
+def login(email,password):
+    c.execute("SELECT * FROM users WHERE email=? AND password=?",
+              (email,hash_password(password)))
+    return c.fetchone()
 
-                st.divider()
-    else:
-        st.error("No courses found")
+# ---------------- CERTIFICATE ----------------
+def generate_certificate(user, course, cert_id):
+    qr = qrcode.make(f"Verify ID: {cert_id}")
+    qr.save("qr.png")
 
-# ---------------- SIDEBAR ----------------
-st.sidebar.title("📌 About")
-st.sidebar.write("""
-This app helps you find courses and redirects you to official platforms where you can learn and earn certificates.
-""")
+    pdf = FPDF()
+    pdf.add_page()
 
-st.sidebar.write("Built with ❤️ using Streamlit")
+    pdf.set_font("Arial","B",20)
+    pdf.cell(0,20,"CERTIFICATE OF COMPLETION",ln=True,align="C")
+
+    pdf.ln(10)
+    pdf.set_font("Arial","",14)
+    pdf.cell(0,10,"This is to certify that",ln=True,align="C")
+
+    pdf.set_font("Arial","B",16)
+    pdf.cell(0,10,user,ln=True,align="C")
+
+    pdf.set_font("Arial","",14)
+    pdf.cell(0,10,"has successfully completed",ln=True,align="C")
+
+    pdf.set_font("Arial","B",16)
+    pdf.cell(0,10,course,ln=True,align="C")
+
+    pdf.ln(10)
+    pdf.cell(0,10,f"Certificate ID: {cert_id}",ln=True,align="C")
+
+    date = datetime.date.today()
+    pdf.cell(0,10,f"Date: {date}",ln=True,align="C")
+
+    pdf.image("qr.png", x=80, y=160, w=50)
+
+    file = f"{cert_id}.pdf"
+    pdf.output(file)
+    return file
+
+# ---------------- SESSION ----------------
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+# ---------------- UI ----------------
+st.title("🎓 CourseHub Academy")
+
+menu = ["Login","Register"]
+if st.session_state.user:
+    menu = ["Dashboard","Courses","Verify Certificate","Logout"]
+
+choice = st.sidebar.selectbox("Menu",menu)
+
+# ---------------- REGISTER ----------------
+if choice == "Register":
+    st.subheader("Create Account")
+    n = st.text_input("Name")
+    e = st.text_input("Email")
+    p = st.text_input("Password", type="password")
+
+    if st.button("Register"):
+        if register(n,e,p):
+            st.success("Registered!")
+        else:
+            st.error("Email exists")
+
+# ---------------- LOGIN ----------------
+elif choice == "Login":
+    st.subheader("Login")
+    e = st.text_input("Email")
+    p = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        user = login(e,p)
+        if user:
+            st.session_state.user = user
+            st.success("Logged in")
+        else:
+            st.error("Invalid")
+
+# ---------------- DASHBOARD ----------------
+elif choice == "Dashboard":
+    st.subheader(f"Welcome {st.session_state.user[1]}")
+
+# ---------------- COURSES ----------------
+elif choice == "Courses":
+
+    # insert demo course
+    c.execute("SELECT * FROM courses")
+    if not c.fetchall():
+        c.execute("INSERT INTO courses(title,description) VALUES('Python Basics','Learn Python')")
+        c.execute("INSERT INTO lessons(course_id,title,content) VALUES(1,'Intro','Intro Content')")
+        c.execute("INSERT INTO lessons(course_id,title,content) VALUES(1,'Variables','Variables Content')")
+        conn.commit()
+
+    c.execute("SELECT * FROM courses")
+    courses = c.fetchall()
+
+    for course in courses:
+        st.subheader(course[1])
+        st.write(course[2])
+
+        if st.button(f"Open {course[0]}"):
+            st.session_state.course_id = course[0]
+
+    if "course_id" in st.session_state:
+        st.subheader("Lessons")
+
+        c.execute("SELECT * FROM lessons WHERE course_id=?",
+                  (st.session_state.course_id,))
+        lessons = c.fetchall()
+
+        for lesson in lessons:
+            st.write(lesson[2])
+            st.write(lesson[3])
+
+            if st.button(f"Complete {lesson[0]}"):
+                c.execute("INSERT INTO progress VALUES(?,?)",
+                          (st.session_state.user[0], lesson[0]))
+                conn.commit()
+                st.success("Completed")
+
+        # completion check
+        c.execute("SELECT COUNT(*) FROM lessons WHERE course_id=?",
+                  (st.session_state.course_id,))
+        total = c.fetchone()[0]
+
+        c.execute("SELECT COUNT(*) FROM progress WHERE user_id=?",
+                  (st.session_state.user[0],))
+        done = c.fetchone()[0]
+
+        if done >= total:
+            if st.button("Generate Certificate"):
+                cert_id = generate_cert_id()
+
+                file = generate_certificate(
+                    st.session_state.user[1],
+                    "Python Basics",
+                    cert_id
+                )
+
+                c.execute("INSERT INTO certificates VALUES(?,?,?,?)",
+                          (cert_id, st.session_state.user[1], "Python Basics", str(datetime.date.today())))
+                conn.commit()
+
+                with open(file,"rb") as f:
+                    st.download_button("Download Certificate", f, file)
+
+# ---------------- VERIFY ----------------
+elif choice == "Verify Certificate":
+    st.subheader("Verify Certificate")
+
+    cid = st.text_input("Enter Certificate ID")
+
+    if st.button("Verify"):
+        c.execute("SELECT * FROM certificates WHERE cert_id=?", (cid,))
+        data = c.fetchone()
+
+        if data:
+            st.success("Valid Certificate ✅")
+            st.write(f"Name: {data[1]}")
+            st.write(f"Course: {data[2]}")
+            st.write(f"Date: {data[3]}")
+        else:
+            st.error("Invalid Certificate ❌")
+
+# ---------------- LOGOUT ----------------
+elif choice == "Logout":
+    st.session_state.user = None
+    st.success("Logged out")
