@@ -9,96 +9,73 @@ import qrcode
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="CourseHub 🎓", layout="wide")
 
-# ---------------- THEME TOGGLE ----------------
-if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
+# ---------------- PREMIUM UI (FONT + GRADIENT) ----------------
+st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-toggle = st.sidebar.toggle("🌗 Toggle Theme", value=True)
+<style>
 
-if toggle:
-    st.session_state.theme = "dark"
-else:
-    st.session_state.theme = "light"
+/* 🌈 Animated Gradient Background */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(
+        180deg,
+        #ff003c,
+        #ff5e00,
+        #ff9900,
+        #7a5cff,
+        #3a86ff,
+        #00c853
+    );
+    background-size: 400% 400%;
+    animation: gradientMove 12s ease infinite;
+}
 
-# ---------------- UI STYLES ----------------
-if st.session_state.theme == "dark":
-    st.markdown("""
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-    * { font-family: 'Poppins', sans-serif !important; }
+/* Animation */
+@keyframes gradientMove {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
+}
 
-    [data-testid="stAppViewContainer"] {
-        background: linear-gradient(
-            180deg,
-            #ff003c,
-            #ff5e00,
-            #ff9900,
-            #7a5cff,
-            #3a86ff,
-            #00c853
-        );
-        background-size: 400% 400%;
-        animation: gradientMove 12s ease infinite;
-    }
+/* 🧊 Glass Container */
+.block-container {
+    background: rgba(0,0,0,0.55);
+    padding: 25px;
+    border-radius: 15px;
+    color: white;
+}
 
-    @keyframes gradientMove {
-        0% {background-position: 0% 50%;}
-        50% {background-position: 100% 50%;}
-        100% {background-position: 0% 50%;}
-    }
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background: rgba(0,0,0,0.7);
+}
 
-    .block-container {
-        background: rgba(0,0,0,0.55);
-        padding: 25px;
-        border-radius: 15px;
-        color: white;
-    }
+/* Poppins Font Everywhere */
+* {
+    font-family: 'Poppins', sans-serif !important;
+}
 
-    [data-testid="stSidebar"] {
-        background: rgba(0,0,0,0.7);
-    }
+/* Headings */
+h1 { font-weight: 700; }
+h2 { font-weight: 600; }
+h3 { font-weight: 600; }
 
-    .stButton>button {
-        border-radius: 12px;
-        padding: 10px 18px;
-        background: linear-gradient(45deg, #ff4d00, #ff9900);
-        color: white;
-        border: none;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+/* Buttons */
+.stButton>button {
+    border-radius: 12px;
+    padding: 10px 18px;
+    background: linear-gradient(45deg, #ff4d00, #ff9900);
+    color: white;
+    border: none;
+}
 
-else:
-    st.markdown("""
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-    * { font-family: 'Poppins', sans-serif !important; }
+/* Inputs */
+input, textarea {
+    border-radius: 10px !important;
+}
 
-    [data-testid="stAppViewContainer"] {
-        background: #f5f7fa;
-    }
-
-    .block-container {
-        background: white;
-        padding: 25px;
-        border-radius: 15px;
-        color: black;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    }
-
-    [data-testid="stSidebar"] {
-        background: #ffffff;
-    }
-
-    .stButton>button {
-        border-radius: 12px;
-        padding: 10px 18px;
-        background: linear-gradient(45deg, #3a86ff, #00c853);
-        color: white;
-        border: none;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------- DB ----------------
 conn = sqlite3.connect("coursehub.db", check_same_thread=False)
@@ -241,6 +218,7 @@ elif choice == "Login":
 # ---------------- DASHBOARD ----------------
 elif choice == "Dashboard":
     st.subheader(f"Welcome {st.session_state.user[1]} 👋")
+    st.write("Start learning and earn certificates!")
 
 # ---------------- COURSES ----------------
 elif choice == "Courses":
