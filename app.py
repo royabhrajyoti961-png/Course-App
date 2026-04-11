@@ -9,35 +9,71 @@ import qrcode
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="CourseHub 🎓", layout="wide")
 
-# ---------------- POPPINS FONT (FINAL FIX) ----------------
+# ---------------- PREMIUM UI (FONT + GRADIENT) ----------------
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
+
+/* 🌈 Animated Gradient Background */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(
+        180deg,
+        #ff003c,
+        #ff5e00,
+        #ff9900,
+        #7a5cff,
+        #3a86ff,
+        #00c853
+    );
+    background-size: 400% 400%;
+    animation: gradientMove 12s ease infinite;
+}
+
+/* Animation */
+@keyframes gradientMove {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
+}
+
+/* 🧊 Glass Container */
+.block-container {
+    background: rgba(0,0,0,0.55);
+    padding: 25px;
+    border-radius: 15px;
+    color: white;
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background: rgba(0,0,0,0.7);
+}
+
+/* Poppins Font Everywhere */
 * {
     font-family: 'Poppins', sans-serif !important;
 }
 
-[data-testid="stAppViewContainer"] * {
-    font-family: 'Poppins', sans-serif !important;
-}
-
-[data-testid="stSidebar"] * {
-    font-family: 'Poppins', sans-serif !important;
-}
-
-button, input, textarea {
-    font-family: 'Poppins', sans-serif !important;
-}
-
+/* Headings */
 h1 { font-weight: 700; }
 h2 { font-weight: 600; }
 h3 { font-weight: 600; }
 
+/* Buttons */
 .stButton>button {
     border-radius: 12px;
     padding: 10px 18px;
+    background: linear-gradient(45deg, #ff4d00, #ff9900);
+    color: white;
+    border: none;
 }
+
+/* Inputs */
+input, textarea {
+    border-radius: 10px !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -201,7 +237,7 @@ elif choice == "Courses":
         st.subheader(course[1])
         st.write(course[2])
 
-        if st.button(f"Open Course {course[0]}"):
+        if st.button(f"Open Course {course[0]}", key=f"open_{course[0]}"):
             st.session_state.course_id = course[0]
 
     if "course_id" in st.session_state:
@@ -215,22 +251,31 @@ elif choice == "Courses":
             st.write(f"### {lesson[2]}")
             st.write(lesson[3])
 
-            if st.button(f"Complete Lesson {lesson[0]}"):
-                c.execute("INSERT INTO progress VALUES(?,?)",
+            if st.button(f"Complete Lesson {lesson[0]}", key=f"lesson_{lesson[0]}"):
+                c.execute("SELECT * FROM progress WHERE user_id=? AND lesson_id=?",
                           (st.session_state.user[0], lesson[0]))
-                conn.commit()
-                st.success("Lesson Completed!")
+                if not c.fetchone():
+                    c.execute("INSERT INTO progress VALUES(?,?)",
+                              (st.session_state.user[0], lesson[0]))
+                    conn.commit()
+                    st.success("Lesson Completed!")
+                else:
+                    st.info("Already completed")
 
         c.execute("SELECT COUNT(*) FROM lessons WHERE course_id=?",
                   (st.session_state.course_id,))
         total = c.fetchone()[0]
 
-        c.execute("SELECT COUNT(*) FROM progress WHERE user_id=?",
-                  (st.session_state.user[0],))
+        c.execute("""
+        SELECT COUNT(*) FROM progress 
+        WHERE user_id=? AND lesson_id IN (
+            SELECT id FROM lessons WHERE course_id=?
+        )
+        """, (st.session_state.user[0], st.session_state.course_id))
         done = c.fetchone()[0]
 
         if done >= total:
-            if st.button("Generate Certificate 🎓"):
+            if st.button("Generate Certificate 🎓", key="cert_btn"):
                 cert_id = generate_cert_id()
 
                 file = generate_certificate(
