@@ -3,7 +3,6 @@ from reportlab.pdfgen import canvas
 from io import BytesIO
 
 st.set_page_config(page_title="Course Dashboard", layout="wide")
-
 # 1. Mock Data
 courses = [
     {"id": 1, "title": "Full Stack Web Dev", "desc": "Learn React and Flask", "completed": True},
