@@ -19,7 +19,6 @@ def generate_certificate(user_name, course_name):
     c.save()
     buffer.seek(0)
     return buffer
-
 # 3. UI Layout
 st.title("My Learning Dashboard")
 user_name = st.sidebar.text_input("Student Name", "John Doe")
