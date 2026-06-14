@@ -8,7 +8,6 @@ courses = [
     {"id": 1, "title": "Full Stack Web Dev", "desc": "Learn React and Flask", "completed": True},
     {"id": 2, "title": "AI & Machine Learning", "desc": "Master Python for AI", "completed": False}
 ]
-
 # 2. Certificate Logic (Returns a buffer instead of a file)
 def generate_certificate(user_name, course_name):
     buffer = BytesIO()
