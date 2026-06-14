@@ -1,7 +1,6 @@
 import streamlit as st
 from reportlab.pdfgen import canvas
 from io import BytesIO
-
 st.set_page_config(page_title="Course Dashboard", layout="wide")
 # 1. Mock Data
 courses = [
